@@ -59,6 +59,7 @@ from .logic.loads import water_heater as water_load
 from .logic.pattern import expected_kwh_for_day
 from .logic.residual import to_watts
 from .logic.router import Allocation, RunningAppliance, has_priority, route
+from .logic.router import pool_yield_w as pump_yield_w
 from .logic.router_state import (
     CONTACTOR_DWELL_S,
     PUMP_DWELL_S,
@@ -235,11 +236,13 @@ class SolarRouter:
                  else self._house_without_loads(grid, int(speed)))
         self.memory.sky.feed(local, pv_w=self._watts(CONF_SOLAR), house_w=house, curve=curve)
         self.sky = self.memory.sky.sky(curve) if curve else None
-        water = self._water_inputs(local, grid, smoothed)
         pump_speed = pool_load._safe_speed(int(speed))
         powered = self._is_on(CONF_POOL_SWITCH) is not False
         filtered = self.memory.pool.count_filtration(local, running=powered and pump_speed > 0)
         pool = self._pool_inputs(local, smoothed, pump_speed, filtered)
+        # The pump's watts are the heater's by priority, over the hold too.
+        yielded = pump_yield_w(pool, self.pool_thresholds()) if powered else 0.0
+        water = self._water_inputs(local, grid, smoothed, yielded)
         self._observe(now, water, pool)
         self.snapshot = Snapshot(water=water, pool=pool, pool_powered=powered)
         self.allocation = route(smoothed, water, self.water_thresholds(),
@@ -290,7 +293,7 @@ class SolarRouter:
                 tomorrow)
 
     def _water_inputs(self, local: datetime, grid_raw: float,
-                      smoothed: float) -> water_load.Inputs:
+                      smoothed: float, yielded_w: float = 0.0) -> water_load.Inputs:
         memory, thr = self.memory.water, self.water_thresholds()
         memory.roll_day(local.date())
         outdoor = self._float(CONF_OUTDOOR_TEMP)
@@ -316,7 +319,7 @@ class SolarRouter:
         boost = (self._float(CONF_BOOST) or 0.0) > 0.5 or (
             contactor_on and memory.boost_requested)
         abundant = water_load.abundant_surplus_for_boost(smoothed, heater_w, thr)
-        usable_hold, usable_tomorrow = self._solar_usable(local, heater_w - smoothed)
+        usable_hold, usable_tomorrow = self._solar_usable(local, heater_w + yielded_w - smoothed)
         midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
         # The curve's totals, corrected by the learned bias, before the sensors.
         today_kwh = self.sky.day_kwh(midnight.date()) if self.sky else None

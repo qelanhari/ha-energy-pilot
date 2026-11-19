@@ -13,8 +13,9 @@ figure that already accounts for what the ones above it have taken:
     pool           sees it *plus* whatever the water heater just claimed
 
 and the order of that list is the priority. For that order to hold, the pump's
-draw above its baseline is handed back to the heater: it is surplus the pump
-borrowed and steps down from, not consumption the heater must work around.
+draw above its baseline — all of it in winter, when v1 runs on the sun alone —
+is handed back to the heater: it is surplus the pump borrowed and steps down
+from, not consumption the heater must work around.
 
 Above both come the machines humans start: dishwasher, washer, dryer. Until
 their last heating they have priority, so the heating power they still owe is
@@ -136,16 +137,32 @@ def appliance_reserve_w(running: list[RunningAppliance]) -> float:
     return sum(appliance.reserve_w for appliance in running)
 
 
-def pool_yield_w(pool_inputs: pool_load.Inputs) -> float:
-    """What the pump would give back by dropping to v1.
+def pool_yield_w(pool_inputs: pool_load.Inputs,
+                 pool_thr: pool_load.Thresholds | None = None) -> float:
+    """What the pump would give back to the heater, which comes first.
 
-    Only in automatic mode: a speed chosen by hand is the user's, and winter
-    already runs on the sun alone at v1 at most.
+    Summer: everything above v1, the filtration floor. Winter: all of it —
+    v1 then runs on the sun alone, so its watts are surplus too. A speed
+    chosen by hand is the user's, and gives nothing.
     """
+    speed = pool_load._safe_speed(pool_inputs.pump_speed)
+    if _solar_only(pool_inputs, pool_thr or pool_load.Thresholds()):
+        return float(pool_load.PUMP_W[speed])
     if pool_inputs.mode not in (pool_load.MODE_AUTO, pool_load.MODE_SUMMER):
         return 0.0
-    speed = pool_load._safe_speed(pool_inputs.pump_speed)
     return max(0.0, pool_load.PUMP_W[speed] - pool_load.PUMP_W[1])
+
+
+def _solar_only(pool_inputs: pool_load.Inputs, pool_thr: pool_load.Thresholds) -> bool:
+    """Winter by day: the pump runs only while the sun pays for it."""
+    if pool_inputs.mode == pool_load.MODE_WINTER:
+        winter = True
+    elif pool_inputs.mode == pool_load.MODE_AUTO:
+        winter = pool_load.season_for(pool_inputs, pool_thr) == pool_load.SEASON_WINTER
+    else:
+        return False
+    return (winter and pool_inputs.daylight
+            and pool_load.winter_top_up_due(pool_inputs, pool_thr) is None)
 
 
 def route(
@@ -167,7 +184,7 @@ def route(
     """
     running = running or []
     reserve = appliance_reserve_w(running)
-    yielded = pool_yield_w(pool_inputs)
+    yielded = pool_yield_w(pool_inputs, pool_thr)
 
     # A reserve makes the grid look *less* favourable: it is surplus already
     # spoken for. The pump's borrowed watts make it look *more* favourable:

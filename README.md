@@ -225,7 +225,7 @@ the same grid meter and claimed the same surplus. One smoothed grid
    dishwasher's after its usual number of heats; the dryer heats to the end.
    A washer armed for a solar start owes its 2.1 kW heating while it waits.
    The reserve fades over a cycle's last ten minutes.
-2. **Water heater**: sees the real meter, plus what the pump borrowed above v1.
+2. **Water heater**: sees the real meter, plus what the pump borrowed above v1 — all of its draw in winter, when v1 runs on the sun alone.
    A contactor already closed stays closed: two hours are committed.
 3. **Pool pump**: sees the meter plus the heater's claim. It stops in seconds,
    so it may use the sun while a machine waits or pauses between heats; while

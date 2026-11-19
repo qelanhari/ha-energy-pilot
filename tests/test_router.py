@@ -273,6 +273,33 @@ def test_the_pump_yields_its_draw_above_v1(pool_inputs, speed, watts):
     assert pool_yield_w(replace(pool_inputs, pump_speed=speed)) == pytest.approx(watts)
 
 
+def test_in_winter_the_pump_yields_all_of_v1(pool_inputs):
+    """Cold water: v1 runs on the sun alone, so its watts are the heater's."""
+    winter = replace(pool_inputs, water_temp_c=9.0)
+    assert pool_yield_w(winter) == pytest.approx(160.0)
+
+
+def test_at_night_the_winter_pump_yields_nothing(pool_inputs):
+    night = replace(pool_inputs, water_temp_c=9.0, daylight=False)
+    assert pool_yield_w(night) == 0.0
+
+
+def test_19_11_the_heater_starts_on_what_the_winter_pump_borrows(
+    base_inputs, router_thr, pool_inputs, pool_thr
+):
+    """10:40, 779 W exported with the pump at v1: short of 650 + 200 W alone."""
+    grid = -779.0
+    water = replace(base_inputs, grid_smooth_w=grid, tank_middle_c=39.8,
+                    energy_needed_kwh=3.78, solar_usable_hold_kwh=1.09)
+    pool = replace(pool_inputs, water_temp_c=9.0)
+    thr = replace(router_thr, heater_nominal_w=650.0)
+    allocation = allocate(grid, water, thr, pool, pool_thr)
+
+    assert allocation.water.signal_switch_on is True
+    # Both fit: the meter still exports ~130 W, the pump keeps its v1.
+    assert allocation.grid_for_pool_w == pytest.approx(-129.0)
+
+
 # ---------------------------------------------------------------------------
 # Readability of the outcome
 # ---------------------------------------------------------------------------
