@@ -68,7 +68,7 @@ from .logic.router_state import (
     from_dict,
     pattern_from_dict,
 )
-from .logic.solar_curve import Curve, Sky
+from .logic.solar_curve import Sky
 from .logic.thermo import energy_budget_until_morning_kwh
 
 _LOGGER = logging.getLogger(__name__)
@@ -210,8 +210,15 @@ class SolarRouter:
 
     # ------------------------------------------------------------- the tick
 
-    async def process(self, now: datetime, running: list[RunningAppliance]) -> None:
-        """Read, decide, and act if piloting. Skipped without a grid reading."""
+    async def process(self, now: datetime, running: list[RunningAppliance], *,
+                      unidentified_w: float | None = None,
+                      metered_house: bool = False) -> None:
+        """Read, decide, and act if piloting. Skipped without a grid reading.
+
+        ``unidentified_w`` is the house's draw less every load a meter or a
+        detector names; ``metered_house`` says it can be computed at all, so
+        that a None is a missing reading, not a missing setting.
+        """
         if not self.configured:
             return
         grid = self._watts(CONF_GRID)
@@ -222,8 +229,11 @@ class SolarRouter:
             return
         local = dt_util.as_local(now)
         smoothed = self.memory.feed_grid(now, grid)
+        self.memory.feed_pv(now, self._watts(CONF_SOLAR))
         curve = await self.forecast.refresh(now)
-        self._learn_sky(local, grid, int(speed), curve)
+        house = (unidentified_w if metered_house
+                 else self._house_without_loads(grid, int(speed)))
+        self.memory.sky.feed(local, pv_w=self._watts(CONF_SOLAR), house_w=house, curve=curve)
         self.sky = self.memory.sky.sky(curve) if curve else None
         water = self._water_inputs(local, grid, smoothed)
         pump_speed = pool_load._safe_speed(int(speed))
@@ -248,16 +258,20 @@ class SolarRouter:
                 await self._drive_pool(now, pool, self.allocation.pool, make_way=make_way)
         self._save()
 
-    def _learn_sky(self, local: datetime, grid_w: float, speed: int, curve: Curve) -> None:
-        """The panels against the forecast, and the house without its two loads."""
+    def _house_without_loads(self, grid_w: float, speed: int) -> float | None:
+        """Without a whole-house meter: the house less the heater and the pump."""
         pv = self._watts(CONF_SOLAR)
         heater = self._watts(CONF_HEATER_POWER) or 0.0
         pump = pool_load.PUMP_W[pool_load._safe_speed(speed)]
-        house = grid_w + pv - heater - pump if pv is not None else None
-        self.memory.sky.feed(local, pv_w=pv, house_w=house, curve=curve)
+        return grid_w + pv - heater - pump if pv is not None else None
 
-    def _solar_usable(self, local: datetime) -> tuple[float | None, float | None]:
-        """Sun the heater can count on: over a hold from now, and tomorrow."""
+    def _solar_usable(self, local: datetime, surplus_w: float
+                      ) -> tuple[float | None, float | None]:
+        """Sun the heater can count on: over a hold from now, and tomorrow.
+
+        The hold is judged from the panels' measured output when there is
+        one; the forecast alone only speaks for tomorrow.
+        """
         if self.sky is None:
             return None, None
         thr = self.water_thresholds()
@@ -267,8 +281,13 @@ class SolarRouter:
                                        thr.heater_nominal_w, thr.surplus_safety_margin_w)
         if self.sky.day_kwh(midnight.date()) is None:
             tomorrow = None  # the curve does not reach tomorrow yet
-        return (self.sky.usable_kwh(local, local + hold, thr.heater_nominal_w,
-                                    thr.surplus_safety_margin_w), tomorrow)
+        pv = self.memory.pv_smooth_w
+        if pv is None:
+            return (self.sky.usable_kwh(local, local + hold, thr.heater_nominal_w,
+                                        thr.surplus_safety_margin_w), tomorrow)
+        return (self.sky.usable_from_now_kwh(local, local + hold, thr.heater_nominal_w,
+                                             surplus_w, pv, thr.surplus_safety_margin_w),
+                tomorrow)
 
     def _water_inputs(self, local: datetime, grid_raw: float,
                       smoothed: float) -> water_load.Inputs:
@@ -297,7 +316,7 @@ class SolarRouter:
         boost = (self._float(CONF_BOOST) or 0.0) > 0.5 or (
             contactor_on and memory.boost_requested)
         abundant = water_load.abundant_surplus_for_boost(smoothed, heater_w, thr)
-        usable_hold, usable_tomorrow = self._solar_usable(local)
+        usable_hold, usable_tomorrow = self._solar_usable(local, heater_w - smoothed)
         midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
         # The curve's totals, corrected by the learned bias, before the sensors.
         today_kwh = self.sky.day_kwh(midnight.date()) if self.sky else None

@@ -189,6 +189,18 @@ class RouterMemory:
     pool: PoolMemory = field(default_factory=PoolMemory)
     # The forecast's learned bias and the house's hourly draw.
     sky: SkyMemory = field(default_factory=SkyMemory)
+    # The panels, smoothed like the grid. Not persisted: minutes old at most.
+    pv_smooth_w: float | None = None
+    pv_at: datetime | None = None
+
+    def feed_pv(self, now: datetime, pv_w: float | None) -> None:
+        """A missing reading forgets the level rather than holding a stale one."""
+        if pv_w is None:
+            self.pv_smooth_w = self.pv_at = None
+            return
+        elapsed = (now - self.pv_at).total_seconds() if self.pv_at else 0.0
+        self.pv_smooth_w = smooth(self.pv_smooth_w, max(0.0, pv_w), elapsed)
+        self.pv_at = now
 
     def feed_grid(self, now: datetime, grid_w: float) -> float:
         elapsed = (now - self.grid_at).total_seconds() if self.grid_at else 0.0

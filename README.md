@@ -310,11 +310,18 @@ heater with its 200 W margin.
   1.5 × the need. Back-tested on 29 nights against what the sun really
   delivered: 26 right with the Open-Meteo curve, 16 with Forecast.Solar's
   daily total (which heated at night before 12 sunny days).
-- **Daytime start**: a two-hour hold is committed only if the curve's next
-  two hours give at least half of it on the sun.
+- **Daytime start**: a two-hour hold is committed only if its next two hours
+  give at least half of it on the sun. The meters set the level: the surplus
+  measured now, moved hour by hour by how much the curve says production
+  rises or falls. The forecast only gives the shape. On 18 Nov the curve alone
+  (bias 0.73, house profile swollen by a car charge) saw no usable hour, while
+  the panels beat their forecast and ~900 W was exported: heated by hand.
 - **Learned**: the forecast's bias, day by day (real over forecast, a
   fortnight's memory), and the house's draw for each hour of the day, without
-  the heater and the pump (defaults: 30-day medians, 300-400 W by day).
+  any identified load: everything metered (heater, pumps, car, laundry
+  circuit) and the dishwasher while it runs. One 7 kW charge on 16 Nov had
+  added ~500 W to 13-14h for ten days. Defaults: 30-day medians, 300-400 W by
+  day. Without a whole-house meter, only the heater and the pump are left out.
 - Without a curve, the daily totals decide as before.
 
 Open-Meteo forecast better here: correlation with actual production 0.86

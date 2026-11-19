@@ -340,7 +340,15 @@ class ApplianceCoordinator(DataUpdateCoordinator[dict[str, WatcherState]]):
                                  curve=self.forecast.curve,
                                  bias=self.router.memory.sky.bias,
                                  house_w=tuple(self.router.memory.sky.house_w))
-        await self.router.process(now, self._running_appliances(now))
+        await self.router.process(now, self._running_appliances(now),
+                                  unidentified_w=self._unidentified_w(),
+                                  metered_house=bool(entry_value(self.entry, CONF_TOTAL)))
+
+    def _unidentified_w(self) -> float | None:
+        """The residual less the dishwasher's own step: the house's base draw."""
+        if self.residual_w is None:
+            return None
+        return self.residual_w - self.states[DISHWASHER].power_w
 
     def _running_appliances(self, now: datetime) -> list[RunningAppliance]:
         """Machines that come before the heater and the pump until their last heating."""

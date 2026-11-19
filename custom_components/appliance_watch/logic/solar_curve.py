@@ -12,8 +12,14 @@ Two things are learned, both from the meters:
 * the **bias** of the forecast, day by day: real production over forecast. Over
   29 days Forecast.Solar ran at a median 1.31 of the truth, spread 0.33-2.5;
   the learning corrects the steady part, whatever the source;
-* the **house profile**: what the house draws each hour, without the heater
-  and the pump. Defaults are the medians measured over 30 days.
+* the **house profile**: what the house draws each hour, without any load a
+  meter or a detector identifies (heater, pumps, car, washer, dryer,
+  dishwasher). One 7 kW car charge must not block the heater for ten days.
+  Defaults are the medians measured over 30 days.
+
+During the day the meters outrank the forecast: :meth:`Sky.usable_from_now_kwh`
+starts from the surplus measured now and borrows only the curve's *shape*
+(rising, falling) for the hours ahead.
 
 Pure module: no Home Assistant import, no I/O.
 """
@@ -43,6 +49,12 @@ BIAS_ALPHA: float = 0.15
 HOUSE_ALPHA: float = 0.1
 # A day with less forecast than this teaches nothing about the bias.
 MIN_DAY_FOR_BIAS_KWH: float = 1.0
+# Below this forecast for the hour, now's production says nothing about the
+# curve's scale (dawn, dusk): the learned bias stands in.
+MIN_SHAPE_W: float = 100.0
+# What the house profile is learned on. A profile stored without this tag was
+# learned with the car and the machines in it, and starts again from defaults.
+HOUSE_BASIS: str = "unidentified"
 
 
 def _hour(at: datetime) -> datetime:
@@ -89,6 +101,32 @@ class Sky:
             if self.net_w(hour) >= load_w + margin_w:
                 total += load_w * share
         return total / 1000
+
+    def usable_from_now_kwh(self, now: datetime, end: datetime, load_w: float,
+                            surplus_w: float, pv_w: float,
+                            margin_w: float = 200.0) -> float:
+        """Like :meth:`usable_kwh`, anchored on what the meters see now.
+
+        ``surplus_w`` is what the load could take now, ``pv_w`` the panels'
+        output now. Each hour ahead keeps that surplus, moved by how much the
+        curve says production will rise or fall: the level is measured, only
+        the shape is forecast.
+        """
+        scale = self._scale_now(now, pv_w)
+        total = 0.0
+        for hour, share in hours_between(self.curve, now, end):
+            expected = surplus_w + self.curve.get(hour, 0.0) * scale - pv_w
+            if expected >= load_w + margin_w:
+                total += load_w * share
+        return total / 1000
+
+    def _scale_now(self, now: datetime, pv_w: float) -> float:
+        """Real production over the curve's, this hour; the bias on a flat curve."""
+        forecast_w = self.curve.get(_hour(now), 0.0)
+        if forecast_w < MIN_SHAPE_W:
+            return self.bias
+        low, high = BIAS_BOUNDS
+        return max(low, min(high, pv_w / forecast_w))
 
     def best_w(self, start: datetime, end: datetime) -> float | None:
         """The highest production expected from ``start`` until ``end``."""
@@ -179,6 +217,7 @@ def memory_as_dict(memory: SkyMemory) -> dict:
     return {
         "bias": memory.bias,
         "house_w": [round(value, 1) for value in memory.house_w],
+        "house_basis": HOUSE_BASIS,
         "day": memory.day.isoformat() if memory.day else None,
         "day_forecast_kwh": memory.day_forecast_kwh,
         "day_actual_kwh": memory.day_actual_kwh,
@@ -197,6 +236,7 @@ def memory_from_dict(data: dict | None) -> SkyMemory:
     memory = SkyMemory(
         bias=max(low, min(high, float(data.get("bias", 1.0)))),
         house_w=([float(v) for v in house] if isinstance(house, list) and len(house) == 24
+                 and data.get("house_basis") == HOUSE_BASIS
                  else list(DEFAULT_HOUSE_W)),
         day=day,
         day_forecast_kwh=data.get("day_forecast_kwh"),

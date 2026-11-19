@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent
                        / "custom_components" / "appliance_watch"))
 
 from logic.loads import water_heater as water_load
+from logic.router_state import RouterMemory
 from logic.solar_curve import (
     DEFAULT_HOUSE_W,
     Sky,
@@ -90,6 +91,68 @@ def test_the_dashboard_payload_folds_into_hours():
     assert curve == {at(13): 700.0}
 
 
+# ------------------------------------------- the meters outrank the forecast
+
+# 18/11/2026, Open-Meteo for the roof, local hours (UTC+1). The learned bias
+# was 0.73 and the house profile, swollen by a 7 kW car charge on 16/11, read
+# 1001 W at 13h and 1142 W at 14h: the curve alone saw no usable hour all day.
+NOV_TZ = timezone(timedelta(hours=1))
+NOV = date(2026, 11, 18)
+NOV_CURVE = {datetime(2026, 11, 18, h, tzinfo=NOV_TZ): wh for h, wh in {
+    9: 104.0, 10: 214.8, 11: 623.3, 12: 1156.3, 13: 1572.3,
+    14: 1797.5, 15: 1756.0, 16: 1622.5, 17: 931.5}.items()}
+NOV_HOUSE = (2001, 1854, 1593, 1206, 1166, 642, 396, 1450, 1105, 740, 654, 760,
+             575, 1001, 1142, 719, 578, 553, 1159, 1143, 670, 483, 1507, 1795)
+
+
+def nov(hour: int, minute: int = 0) -> datetime:
+    return datetime(2026, 11, 18, hour, minute, tzinfo=NOV_TZ)
+
+
+def test_18_11_the_curve_alone_saw_no_sun_for_the_heater():
+    sky = Sky(curve=NOV_CURVE, bias=0.73, house_w=NOV_HOUSE)
+    assert sky.usable_kwh(nov(12, 47), nov(14, 47), 650.0) == 0.0
+
+
+def test_18_11_the_measured_surplus_carries_the_two_hour_hold():
+    """12:47: ~900 W exported with ~1 kW from the panels, the curve rising."""
+    sky = Sky(curve=NOV_CURVE, bias=0.73, house_w=NOV_HOUSE)
+    usable = sky.usable_from_now_kwh(nov(12, 47), nov(14, 47), 650.0,
+                                     surplus_w=900.0, pv_w=1000.0)
+    assert usable == pytest.approx(1.3)
+
+
+def test_a_falling_curve_still_says_the_sun_is_going():
+    """Same surplus at 16:30, but the curve halves next hour and then ends."""
+    sky = Sky(curve=NOV_CURVE, bias=0.73)
+    usable = sky.usable_from_now_kwh(nov(16, 30), nov(18, 30), 650.0,
+                                     surplus_w=900.0, pv_w=1600.0)
+    assert usable == pytest.approx(0.325)       # only the half hour left of 16h
+
+
+def test_without_a_surplus_now_the_curve_promises_nothing():
+    sky = Sky(curve=NOV_CURVE)
+    assert sky.usable_from_now_kwh(nov(13), nov(15), 650.0, surplus_w=100.0,
+                                   pv_w=1500.0) == 0.0
+
+
+def test_at_dawn_the_learned_bias_scales_the_curve():
+    """Under 100 W forecast this hour, now's output says nothing about the scale."""
+    sky = Sky(curve={nov(8): 50.0, nov(9): 2000.0}, bias=0.5)
+    # 900 + 2000 × 0.5 − 40 = 1860 W at 9h: counts; at 8h 900 W counts too.
+    assert sky.usable_from_now_kwh(nov(8), nov(10), 650.0, surplus_w=900.0,
+                                   pv_w=40.0) == pytest.approx(1.3)
+
+
+def test_the_panels_are_smoothed_and_a_lost_reading_is_forgotten():
+    memory = RouterMemory()
+    memory.feed_pv(nov(12), 1000.0)
+    memory.feed_pv(nov(12, 0, ), 3000.0)          # no time elapsed: no weight
+    assert memory.pv_smooth_w == 1000.0
+    memory.feed_pv(nov(12, 1), None)
+    assert memory.pv_smooth_w is None
+
+
 # ---------------------------------------------------------------- learning
 
 
@@ -127,6 +190,13 @@ def test_the_memory_round_trips():
     memory = SkyMemory(bias=1.3, house_w=[300.0] * 24, day=DAY, day_forecast_kwh=5.0,
                        day_actual_kwh=2.0)
     assert memory_as_dict(memory_from_dict(memory_as_dict(memory))) == memory_as_dict(memory)
+
+
+def test_a_profile_learned_with_the_identified_loads_starts_again():
+    """Stored before 0.14.0, the car and the machines are in it: dropped."""
+    old = {"bias": 0.73, "house_w": list(NOV_HOUSE)}
+    assert memory_from_dict(old).house_w == list(DEFAULT_HOUSE_W)
+    assert memory_from_dict(old).bias == 0.73
 
 
 @pytest.mark.parametrize("bad", [None, {}, {"bias": 99, "house_w": [1, 2], "day": "x"}])

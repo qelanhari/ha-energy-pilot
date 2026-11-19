@@ -18,6 +18,7 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 from test_setup import (
+    CHARGER,
     DATA,
     GRID,
     LAUNDRY,
@@ -443,3 +444,18 @@ async def test_the_armed_washer_can_be_started_by_hand_without_sun(hass, noon):
     await hass.async_block_till_done()
     assert [call.data for call in start] == [
         {"entity_id": WASHER_OPERATION, "option": "start"}]
+
+
+async def test_a_car_charging_does_not_swell_the_house_profile(hass, noon):
+    """16/11: 7 kW on the charger for two hours kept the heater off for days."""
+    entry = await setup_entry(hass, ROUTER)
+    sunny_noon(hass)
+    power(hass, CHARGER, 7.2, unit="kW")
+    power(hass, TOTAL, 900 + 7200)
+    router = hass.data[DOMAIN][entry.entry_id].router
+    slot = dt_util.as_local(dt_util.utcnow()).hour
+    before = router.memory.sky.house_w[slot]
+    await run(hass, noon, minutes=70)
+    learned = router.memory.sky.house_w[slot]
+    # 900 total − 160 pump − 2 laundry: the car left out, the base learned.
+    assert learned == pytest.approx(before + 0.1 * (738 - before), abs=1.0)
