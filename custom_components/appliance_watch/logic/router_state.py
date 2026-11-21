@@ -150,23 +150,30 @@ class PoolMemory:
     # Filtration since the filtration day began at 06:00, local time.
     filtration_day: date | None = None
     filtered_min: float = 0.0
+    # Of which at v2 or v3: the winter stir.
+    stirred_min: float = 0.0
     filtered_at: datetime | None = None
     was_running: bool = False
+    was_stirring: bool = False
 
     def count_filtration(self, local: datetime, running: bool,
-                         day_starts: int = 6) -> float:
+                         day_starts: int = 6, stirring: bool = False) -> float:
         """Count the minutes since the last tick if the pump was running then.
 
         A reading holds until the next one: the interval belongs to the state
         seen at its start. Resets when the filtration day begins, at 06:00.
+        ``stirring`` (v2 or v3) is counted apart as well, in ``stirred_min``.
         """
         day = (local - timedelta(hours=day_starts)).date()
         if day != self.filtration_day:
-            self.filtration_day, self.filtered_min = day, 0.0
+            self.filtration_day, self.filtered_min, self.stirred_min = day, 0.0, 0.0
         elif self.was_running and self.filtered_at is not None:
-            elapsed = (local - self.filtered_at).total_seconds() / 60
-            self.filtered_min += min(max(elapsed, 0.0), 10.0)
+            elapsed = min(max((local - self.filtered_at).total_seconds() / 60, 0.0), 10.0)
+            self.filtered_min += elapsed
+            if self.was_stirring:
+                self.stirred_min += elapsed
         self.filtered_at, self.was_running = local, running
+        self.was_stirring = running and stirring
         return self.filtered_min
 
     def speed_changed(self, now: datetime, decision: pool_load.Decision) -> None:
@@ -279,6 +286,7 @@ def as_dict(memory: RouterMemory) -> dict[str, Any]:
             "season": pool.season,
             "filtration_day": _iso(pool.filtration_day),
             "filtered_min": round(pool.filtered_min, 1),
+            "stirred_min": round(pool.stirred_min, 1),
         },
         "sky": memory_as_dict(memory.sky),
     }
@@ -324,6 +332,7 @@ def from_dict(data: dict[str, Any] | None) -> RouterMemory:
             season=pool.get("season"),
             filtration_day=_day(pool.get("filtration_day")),
             filtered_min=float(pool.get("filtered_min", 0.0)),
+            stirred_min=float(pool.get("stirred_min", 0.0)),
         ),
         sky=memory_from_dict(data.get("sky")),
     )

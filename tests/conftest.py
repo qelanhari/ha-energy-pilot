@@ -110,4 +110,6 @@ def pool_inputs(pool_t0: datetime) -> PoolInputs:
         v3_started_at=None,
         v3_last_ended_at=None,
         force_skim_requested=False,
+        # The day's winter stir done: these tests are about everything else.
+        stirred_today_min=30.0,
     )

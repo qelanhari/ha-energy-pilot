@@ -48,6 +48,7 @@ from .const import (
     CONF_TEMPO_HC,
     CONF_TEMPO_NEXT,
     CONF_WINTER_MINUTES,
+    CONF_WINTER_STIR_MINUTES,
     DEFAULT_HEATER_NOMINAL_W,
     DOMAIN,
     STORAGE_VERSION,
@@ -145,6 +146,8 @@ class SolarRouter:
             water_warm_c=float(entry_value(self.entry, CONF_POOL_WARM, base.water_warm_c)),
             winter_daily_minutes=float(entry_value(
                 self.entry, CONF_WINTER_MINUTES, base.winter_daily_minutes)),
+            winter_stir_minutes=float(entry_value(
+                self.entry, CONF_WINTER_STIR_MINUTES, base.winter_stir_minutes)),
         )
 
     # --------------------------------------------------------- persistence
@@ -238,7 +241,8 @@ class SolarRouter:
         self.sky = self.memory.sky.sky(curve) if curve else None
         pump_speed = pool_load._safe_speed(int(speed))
         powered = self._is_on(CONF_POOL_SWITCH) is not False
-        filtered = self.memory.pool.count_filtration(local, running=powered and pump_speed > 0)
+        filtered = self.memory.pool.count_filtration(local, running=powered and pump_speed > 0,
+                                                     stirring=pump_speed >= 2)
         pool = self._pool_inputs(local, smoothed, pump_speed, filtered)
         # The pump's watts are the heater's by priority, over the hold too.
         yielded = pump_yield_w(pool, self.pool_thresholds()) if powered else 0.0
@@ -360,6 +364,7 @@ class SolarRouter:
             tempo_color=self._text(CONF_TEMPO_COLOR),
             is_hc=self._is_on(CONF_TEMPO_HC) is True, season=memory.season,
             filtered_today_min=filtered_min,
+            stirred_today_min=memory.stirred_min,
             force_skim_requested=memory.skim_requested,
         )
 

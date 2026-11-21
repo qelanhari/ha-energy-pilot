@@ -357,7 +357,7 @@ class TestWinterMode:
                 pool_inputs,
                 mode=MODE_WINTER,
                 pump_speed=1,
-                grid_w=-3000.0,   # plenty for v3, but winter caps at v1
+                grid_w=-3000.0,   # plenty for v3, but once stirred winter caps at v1
                 water_temp_c=26.0,
                 air_temp_c=30.0,
             ),
@@ -582,7 +582,7 @@ class TestV3MinSession:
 
 class TestAutomaticSeason:
     def test_cold_water_puts_auto_mode_into_winter(self, pool_inputs, pool_thr):
-        """April: 19 °C water. Winter caps the pump at v1 and stops at night."""
+        """April: 19 °C water. Once stirred, winter caps the pump at v1 and stops at night."""
         d = decide(
             replace(pool_inputs, mode=MODE_AUTO, water_temp_c=19.0,
                     grid_w=-1500.0, air_temp_c=35.0),

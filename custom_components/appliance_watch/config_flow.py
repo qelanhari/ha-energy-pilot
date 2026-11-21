@@ -63,6 +63,7 @@ from .const import (
     CONF_TOTAL,
     CONF_WASHER_STATUS,
     CONF_WINTER_MINUTES,
+    CONF_WINTER_STIR_MINUTES,
     DEFAULT_HEATER_NOMINAL_W,
     DOMAIN,
     entry_value,
@@ -223,4 +224,7 @@ class ApplianceWatchOptionsFlow(OptionsFlow):
         schema[vol.Required(CONF_WINTER_MINUTES, default=entry_value(
             entry, CONF_WINTER_MINUTES, PoolThresholds().winter_daily_minutes))] = _number(
                 0, 600, 15, "min")
+        schema[vol.Required(CONF_WINTER_STIR_MINUTES, default=entry_value(
+            entry, CONF_WINTER_STIR_MINUTES, PoolThresholds().winter_stir_minutes))] = _number(
+                0, 120, 5, "min")
         return self.async_show_form(step_id="routeur", data_schema=vol.Schema(schema))

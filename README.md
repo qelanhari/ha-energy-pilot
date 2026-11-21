@@ -242,6 +242,9 @@ the same grid meter and claimed the same surplus. One smoothed grid
   hours a day (from 06:00 to 06:00): what the sun has not paid for runs at v1
   at the end of the off-peak window, so as to finish at 06:00 — same price
   all night, the coldest hour guarded against frost, no pump at bedtime.
+  Of those, 30 minutes a day stir the water at v3 (v2 if the sun pays for
+  no more): v1 alone let algae settle in the corners in November 2026. On
+  the sun when it can, otherwise at v3 at the start of the night top-up.
 - **Rainwater pumps** are not routed: they pump when the water is there.
   They are ordinary consumption for the router.
 
@@ -260,7 +263,8 @@ automatic logic:
 - **Lancer le lave-linge maintenant**: the armed washer woken and started at
   the next tick, as the router would, whatever the sun — still only with the
   programme held by SmartThinQ. Disarming cancels it.
-- **Options**: minimum winter filtration per day (0 to switch off the top-up).
+- **Options**: minimum winter filtration per day (0 to switch off the top-up),
+  and the part of it stirred at v2/v3 (0 to switch off the stir).
 
 Configured in the second Options step. It **observes only** until the
 « Pilotage » switch is turned on: the « Décision chauffe-eau » and

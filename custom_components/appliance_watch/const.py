@@ -68,6 +68,8 @@ CONF_HEATER_NOMINAL: Final = "water_heater_nominal_w"
 CONF_POOL_WARM: Final = "pool_water_warm_c"
 # Daily filtration the pool still gets in winter, topped up at off-peak rates.
 CONF_WINTER_MINUTES: Final = "pool_winter_daily_minutes"
+# Of which at v2/v3, to stir the water: v1 alone lets algae settle.
+CONF_WINTER_STIR_MINUTES: Final = "pool_winter_stir_minutes"
 # The pump's own relay (Shelly 1PM Gen4). Off means unpowered on purpose:
 # the router then leaves the speed alone.
 CONF_POOL_SWITCH: Final = "pool_switch_entity"

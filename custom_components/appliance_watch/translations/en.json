@@ -80,7 +80,8 @@
           "water_heater_nominal_w": "Water heater: real draw when heating",
           "pool_water_warm_c": "Pool: water warm enough for the high speeds",
           "solar_forecast_entry": "Hourly solar forecast (curve)",
-          "pool_winter_daily_minutes": "Pool: minimum daily filtration in winter"
+          "pool_winter_daily_minutes": "Pool: minimum daily filtration in winter",
+          "pool_winter_stir_minutes": "Pool: daily winter stir (v2/v3)"
         },
         "data_description": {
           "water_contactor_entity": "The contactor commits the heater for at least two hours. Without it, neither load is driven.",
@@ -88,7 +89,8 @@
           "pool_switch_entity": "Relay off means the pump is deliberately unpowered: its speed is left alone.",
           "water_heater_nominal_w": "Measured at about 650 W, not the 800 W nameplate.",
           "solar_forecast_entry": "The hour-by-hour curve, less what the house draws each hour, tells when the surplus can carry the heater. Open-Meteo Solar Forecast predicts better here than Forecast.Solar (0.86 vs 0.74 correlation with actual over 29 days).",
-          "pool_winter_daily_minutes": "From 06:00 to 06:00. What the sun did not cover runs at speed 1 at the end of the off-peak window, finishing at 06:00. 0: no top-up."
+          "pool_winter_daily_minutes": "From 06:00 to 06:00. What the sun did not cover runs at speed 1 at the end of the off-peak window, finishing at 06:00. 0: no top-up.",
+          "pool_winter_stir_minutes": "Part of the daily filtration. Speed 1 alone does not stir enough: algae settle. At speed 3 (2 if the sun pays for no more) whenever the sun allows, otherwise at speed 3 at the start of the off-peak top-up. 0: no stir."
         }
       }
     }

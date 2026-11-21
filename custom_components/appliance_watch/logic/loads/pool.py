@@ -76,6 +76,8 @@ class Inputs:
     # ROUTEUR: minutes filtered since the filtration day began (06:00, the end
     # of the off-peak window), whatever the speed. ``now`` must be local time.
     filtered_today_min: float = 0.0
+    # ROUTEUR: of which at v2 or v3 — the winter stir.
+    stirred_today_min: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -107,6 +109,12 @@ class Thresholds:
     # moving water then guards the pipes against frost — and the pump stays
     # quiet at bedtime.
     winter_daily_minutes: float = 120.0
+    # ROUTEUR: v1 alone does not stir a cold pool: in November 2026 algae
+    # settled in the corners and on the floor, chlorine notwithstanding. So
+    # winter also runs this much a day at v3 (v2 if the sun pays for no
+    # more), on the sun when it can, otherwise at v3 at the start of the
+    # off-peak top-up. Counts towards the daily filtration.
+    winter_stir_minutes: float = 30.0
     hc_end: time = time(6, 0)
 
 
@@ -238,13 +246,21 @@ def minutes_to_hc_end(i: Inputs, thr: Thresholds) -> float:
     return (end - i.now).total_seconds() / 60
 
 
+def winter_stir_owed(i: Inputs, thr: Thresholds) -> float:
+    """Minutes at v2 or v3 still owed today. 0 once stirred enough."""
+    return max(thr.winter_stir_minutes - i.stirred_today_min, 0.0)
+
+
 def winter_top_up_due(i: Inputs, thr: Thresholds) -> float | None:
     """Minutes still owed, once it is time to run them before the window ends.
 
     Started as late as possible, the top-up then ends with the window: the
-    owed minutes and the minutes left shrink together while it runs.
+    owed minutes and the minutes left shrink together while it runs. The
+    stir owed is part of it — it runs first — so the top-up is at least
+    that long even on a day the sun filtered enough.
     """
-    owed = thr.winter_daily_minutes - i.filtered_today_min
+    owed = max(thr.winter_daily_minutes - i.filtered_today_min,
+               winter_stir_owed(i, thr))
     if not i.is_hc or owed <= 0:
         return None
     return owed if minutes_to_hc_end(i, thr) <= owed else None
@@ -261,6 +277,15 @@ def _decide_impl(i: Inputs, thr: Thresholds, season: str) -> Decision:
     if i.mode == MODE_WINTER or (i.mode == MODE_AUTO and season == SEASON_WINTER):
         owed = winter_top_up_due(i, thr)
         if owed is not None:
+            stir = winter_stir_owed(i, thr)
+            if stir > 0:
+                return Decision(
+                    target_speed=3,
+                    reason=f"hiver : brassage v3 en heures creuses "
+                           f"({stir:.0f} min sur {thr.winter_stir_minutes:.0f})",
+                    enter_v3=not was_v3,
+                    leave_v3=False,
+                )
             return Decision(
                 target_speed=1,
                 reason=f"hiver : complément de filtration en heures creuses "
@@ -282,6 +307,17 @@ def _decide_impl(i: Inputs, thr: Thresholds, season: str) -> Decision:
                 enter_v3=False,
                 leave_v3=was_v3,
             )
+        # ROUTEUR: the day's stir, on the sun, as high as it pays for.
+        if winter_stir_owed(i, thr) > 0:
+            for speed in (3, 2):
+                if _affordable(speed, i, thr):
+                    return Decision(
+                        target_speed=speed,
+                        reason=f"hiver : brassage v{speed} au soleil "
+                               f"({winter_stir_owed(i, thr):.0f} min restantes)",
+                        enter_v3=speed == 3 and not was_v3,
+                        leave_v3=was_v3 and speed != 3,
+                    )
         # Solar covers the bump from current speed up to v1?
         if _affordable(1, i, thr):
             how = "winter" if i.mode == MODE_WINTER else "hiver (eau froide)"
