@@ -235,7 +235,8 @@ the same grid meter and claimed the same surplus. One smoothed grid
 - **Water heater**: the `dhwp_smart` brain (v0.8.0) with the router's rules:
   Tempo Rouge peak never starts a cycle; at the night checkpoints, below 42 °C
   it heats whatever the sky, between 42 and 48 °C only if tomorrow's sun is
-  not guaranteed (or tomorrow is Rouge). Never heats on peak-hour grid.
+  not guaranteed. On the eve of a Rouge day, it fills the tank with boost
+  below 53 °C. Never heats on peak-hour grid.
 - **Pool pump**: the `pool_pump` brain; the season follows the water
   temperature, the warmth gate reads the water only, and the pump's relay
   (Shelly 1PM) off means the speed is left alone. Winter still filters two

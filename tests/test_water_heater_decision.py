@@ -793,6 +793,47 @@ class TestHcWindow:
         assert d.signal_switch_on is False
 
 
+class TestRougeEve:
+    """Eve of a Rouge day: the tank leaves HC full, with boost (2026-11-26:
+    51.2 °C at 01:00 was left alone, 39 °C after the morning showers)."""
+
+    @staticmethod
+    def _at(base, hour, minute, **kw):
+        kw.setdefault("tempo_next_color", "Rouge")
+        kw.setdefault("forecast_tomorrow_kwh", 25.0)
+        kw.setdefault("energy_needed_kwh", 1.0)
+        return replace(base, now=base.now.replace(hour=hour, minute=minute),
+                       is_hc=True, **kw)
+
+    def test_01h00_fills_a_warm_tank(self, base_inputs, thr):
+        d = decide(self._at(base_inputs, 1, 0, tank_middle_c=51.2), thr)
+        assert (d.signal_switch_on, d.boost_mode_on) == (True, True)
+
+    def test_03h30_fills_a_warm_tank(self, base_inputs, thr):
+        d = decide(self._at(base_inputs, 3, 30, tank_middle_c=50.2), thr)
+        assert (d.signal_switch_on, d.boost_mode_on) == (True, True)
+
+    def test_a_full_tank_is_left_alone(self, base_inputs, thr):
+        d = decide(self._at(base_inputs, 1, 0, tank_middle_c=53.2), thr)
+        assert d.signal_switch_on is False
+
+    def test_not_outside_the_checkpoints(self, base_inputs, thr):
+        d = decide(self._at(base_inputs, 23, 0, tank_middle_c=50.0), thr)
+        assert d.signal_switch_on is False
+
+    def test_a_white_tomorrow_keeps_the_sunny_deferral(self, base_inputs, thr):
+        d = decide(self._at(base_inputs, 1, 0, tank_middle_c=51.2,
+                            tempo_next_color="Blanc", outdoor_c=10.0), thr)
+        assert d.signal_switch_on is False
+
+    def test_boost_is_kept_through_the_hold(self, base_inputs, thr):
+        started = base_inputs.now.replace(hour=1, minute=0)
+        d = decide(self._at(base_inputs, 1, 30, tank_middle_c=52.0,
+                            signal_currently_on=True, signal_on_at=started,
+                            boost_currently_on=True), thr)
+        assert (d.signal_switch_on, d.boost_mode_on) == (True, True)
+
+
 # ----------------------------------------------------------------------------
 # HP window non-Rouge (solar candidate)
 # ----------------------------------------------------------------------------

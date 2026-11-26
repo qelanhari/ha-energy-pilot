@@ -10,7 +10,9 @@ Priority chain (top wins):
 2. Tempo Rouge HP — never start a cycle (ROUTEUR lock); a 2 h hold
    already under way runs out.
 3. HC window — only at three checkpoints (22:30 rescue, 01:00 main,
-   03:30 last-chance). 22:30 fires only on a depleted tank; 01:00 on
+   03:30 last-chance). On the eve of a Rouge day, 01:00 and 03:30 fill the
+   tank with boost below `rouge_eve_floor_c`: nothing refills it before
+   22:00. Otherwise 22:30 fires only on a depleted tank; 01:00 on
    tank-middle below the comfort floor, or below the main floor when
    tomorrow's sun is not guaranteed, OR poor tomorrow forecast OR very cold
    outdoor; 03:30 projects the tank to HC end with the same two floors. Outside the checkpoints, never
@@ -145,6 +147,10 @@ class Thresholds:
     # leaves as export. At ~0.4 °C/h of drift a tank at 46 °C at midnight is
     # still at ~43 °C by morning, which is plenty for a shower on 270 L.
     hc_comfort_floor_c: float = 42.0
+    # ROUTEUR: eve of a Rouge day. Peak hours are locked from 06:00 to 22:00,
+    # so the tank must leave HC full: 51 °C at 01:00 fell to 39 °C after the
+    # morning showers on 2026-11-26, with no way to reheat until night.
+    rouge_eve_floor_c: float = 53.0
     # Outdoor coldness bonus — below this we lack data, so heat as a hedge.
     hc_cold_outdoor_c: float = 5.0
     # Heater self-idle detection. The Atlantic DHWP draws ~800 W when
@@ -367,6 +373,24 @@ def _projected_middle_at_hc_end(i: Inputs, thr: Thresholds) -> float | None:
     return i.tank_middle_c - thr.overnight_cooldown_c_per_h * hours
 
 
+def _rouge_eve_fill(i: Inputs, thr: Thresholds, mid: float,
+                    checkpoint: str) -> Decision | None:
+    """Eve of a Rouge day: fill the tank, with boost, below the eve floor.
+
+    Peak hours are locked tomorrow (`_rouge_hp_locked`), so whatever the
+    tank lacks at 06:00 stays missing until 22:00, sun or not.
+    """
+    if not _is_rouge(i.tempo_next_color) or mid >= thr.rouge_eve_floor_c:
+        return None
+    return Decision(
+        True, True,
+        f"HC {checkpoint} veille de Rouge · tank_middle {mid:.1f}°C < "
+        f"{thr.rouge_eve_floor_c:.0f}°C — ballon plein avant la journée rouge, "
+        f"boost {thr.boost_target_c:.0f}°C",
+        "heat_hc",
+    )
+
+
 def _hc_checkpoint_action(i: Inputs, thr: Thresholds) -> Decision | None:
     """Return a heating Decision iff the current time matches one of the
     three HC checkpoints AND its condition is met. Otherwise None."""
@@ -415,12 +439,10 @@ def _hc_checkpoint_action(i: Inputs, thr: Thresholds) -> Decision | None:
             thr.pv_self_consumption_kwh,
             thr.sunny_forecast_safety_factor,
         )
-    # ROUTEUR: can tomorrow's sun be relied on to do this for free?
-    # Two ways it cannot: the forecast is poor or unknown, or tomorrow is a
-    # Rouge day — on which the router refuses to engage the contactor during
-    # peak hours, so the sun is there but unusable.
-    tomorrow_is_rouge = _is_rouge(i.tempo_next_color)
-    solar_can_wait = tomorrow_will_cover is True and not tomorrow_is_rouge
+    # ROUTEUR: can tomorrow's sun be relied on to do this for free? Not when
+    # the forecast is poor or unknown. A Rouge tomorrow, where the sun is
+    # there but unusable, is handled first by `_rouge_eve_fill`.
+    solar_can_wait = tomorrow_will_cover is True
 
     if _near(now_t, thr.hc_rescue_time, thr.hc_checkpoint_tolerance_min):
         if mid < thr.hc_rescue_floor_c:
@@ -441,18 +463,19 @@ def _hc_checkpoint_action(i: Inputs, thr: Thresholds) -> Decision | None:
                 f"{thr.hc_comfort_floor_c:.0f}°C — plancher de confort",
                 "heat_hc",
             )
+        rouge_eve = _rouge_eve_fill(i, thr, mid, "01:00")
+        if rouge_eve is not None:
+            return rouge_eve
         # ROUTEUR: above it, a top-up is an optimisation and gives way to a
         # sunny tomorrow. The original tested this floor alone, before ever
         # consulting the forecast — which is what heated the tank on four
         # nights followed by 16-22 kWh days.
         if mid < thr.hc_main_floor_c and not solar_can_wait:
-            why = ("demain Rouge : le solaire sera inutilisable"
-                   if tomorrow_is_rouge else
-                   "prévision solaire insuffisante ou inconnue")
             return Decision(
                 True, False,
                 f"HC 01:00 main · tank_middle {mid:.1f}°C < "
-                f"{thr.hc_main_floor_c:.0f}°C et {why}",
+                f"{thr.hc_main_floor_c:.0f}°C et prévision solaire "
+                "insuffisante ou inconnue",
                 "heat_hc",
             )
         if forecast_poor:
@@ -488,6 +511,9 @@ def _hc_checkpoint_action(i: Inputs, thr: Thresholds) -> Decision | None:
                 f"{thr.hc_comfort_floor_c:.0f}°C — plancher de confort",
                 "hard_floor",
             )
+        rouge_eve = _rouge_eve_fill(i, thr, mid, "03:30")
+        if rouge_eve is not None:
+            return rouge_eve
         if projected < thr.hard_floor_c and not solar_can_wait:
             return Decision(
                 True, False,
