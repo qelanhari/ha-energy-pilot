@@ -276,8 +276,9 @@ it takes over the weekday hot-water habits `dhwp_smart` has learned.
 ### Indicator lamp — the draw in colour
 
 Optional, in the same Options step: a lamp, its room's light group, and a
-minimum solar production (200 W by default). While the panels make at least
-that and no other lamp of the room is on, the lamp lights up on its own:
+minimum solar production (200 W by default), and the room's lights that do not
+count (a table spot, say). While the panels make at least that and no other
+lamp of the room is on, the lamp lights up on its own:
 
 - **colour**: the net draw (grid meter, smoothed over ~8 s), sweeping the hue
   circle one way at full saturation: green as soon as it exports (lime for a little, pure green from 1.5 kW),

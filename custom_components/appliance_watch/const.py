@@ -75,6 +75,8 @@ CONF_WINTER_STIR_MINUTES: Final = "pool_winter_stir_minutes"
 CONF_INDICATOR_LIGHT: Final = "indicator_light_entity"
 CONF_INDICATOR_ROOM: Final = "indicator_room_entity"
 CONF_INDICATOR_MIN_PV: Final = "indicator_min_solar_w"
+# Lights of the room that do not count as lighting it (a table spot, say).
+CONF_INDICATOR_IGNORE: Final = "indicator_ignored_lights"
 # The pump's own relay (Shelly 1PM Gen4). Off means unpowered on purpose:
 # the router then leaves the speed alone.
 CONF_POOL_SWITCH: Final = "pool_switch_entity"

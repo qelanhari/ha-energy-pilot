@@ -22,6 +22,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_GRID,
+    CONF_INDICATOR_IGNORE,
     CONF_INDICATOR_LIGHT,
     CONF_INDICATOR_MIN_PV,
     CONF_INDICATOR_ROOM,
@@ -71,11 +72,13 @@ class Indicator:
         return all(self._entity(key) for key in (CONF_INDICATOR_LIGHT, CONF_GRID, CONF_SOLAR))
 
     def _others(self) -> list[str]:
-        """The room group's members, the lamp excepted (a Hue room lists them)."""
+        """The room group's members (a Hue room lists them), less the lamp and
+        the lights that do not count as lighting the room."""
         room = self._entity(CONF_INDICATOR_ROOM)
         state = self.hass.states.get(room) if room else None
         members = state.attributes.get("entity_id", []) if state else []
-        return [member for member in members if member != self.lamp]
+        ignored = {self.lamp, *(entry_value(self.entry, CONF_INDICATOR_IGNORE, []) or [])}
+        return [member for member in members if member not in ignored]
 
     # ----------------------------------------------------------- lifecycle
 

@@ -84,7 +84,8 @@
           "pool_winter_stir_minutes": "Piscine : brassage par jour en hiver (v2/v3)",
           "indicator_light_entity": "Voyant : lampe",
           "indicator_room_entity": "Voyant : pièce (groupe de lumières)",
-          "indicator_min_solar_w": "Voyant : production solaire minimale"
+          "indicator_min_solar_w": "Voyant : production solaire minimale",
+          "indicator_ignored_lights": "Voyant : lampes qui n'éteignent pas le voyant"
         },
         "data_description": {
           "water_contactor_entity": "Le contacteur engage le chauffe-eau pour deux heures au moins. Sans lui, ni contacteur ni pompe ne sont pilotés.",
@@ -96,7 +97,8 @@
           "pool_winter_stir_minutes": "Compris dans la filtration. v1 seule ne brasse pas assez : des algues se déposent. En v3 (v2 si le soleil ne paie pas plus) dès que le soleil le permet, sinon en v3 au début du complément de fin de nuit. 0 : pas de brassage.",
           "indicator_light_entity": "Allumée d'elle-même tant que le soleil produit et que le reste de la pièce est éteint : sa couleur suit la consommation nette (tout le cercle des teintes, dans un seul sens : vert dès qu’on injecte (citron vert pour un peu, vert franc dès 1,5 kW), puis cyan à 0 W, bleu à 700 W, puis violet, magenta et rouge dès 6 kW), sa luminosité la production. Éteinte à la main, elle le reste jusqu'au retour des conditions. Vide : pas de voyant.",
           "indicator_room_entity": "Le groupe de la pièce (une pièce Hue liste ses lampes) : dès qu'une autre lampe s'allume, le voyant lui laisse la sienne.",
-          "indicator_min_solar_w": "En dessous (moins 50 W de marge à l'extinction), le voyant s'éteint."
+          "indicator_min_solar_w": "En dessous (moins 50 W de marge à l'extinction), le voyant s'éteint.",
+          "indicator_ignored_lights": "Lampes de la pièce allumées sans que le voyant leur cède la place (un spot de table, par exemple)."
         }
       }
     }
