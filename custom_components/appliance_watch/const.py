@@ -70,6 +70,11 @@ CONF_POOL_WARM: Final = "pool_water_warm_c"
 CONF_WINTER_MINUTES: Final = "pool_winter_daily_minutes"
 # Of which at v2/v3, to stir the water: v1 alone lets algae settle.
 CONF_WINTER_STIR_MINUTES: Final = "pool_winter_stir_minutes"
+# The indicator lamp (logic.indicator): the net draw as a colour while the
+# sun shines and the rest of its room is dark. Uses CONF_GRID and CONF_SOLAR.
+CONF_INDICATOR_LIGHT: Final = "indicator_light_entity"
+CONF_INDICATOR_ROOM: Final = "indicator_room_entity"
+CONF_INDICATOR_MIN_PV: Final = "indicator_min_solar_w"
 # The pump's own relay (Shelly 1PM Gen4). Off means unpowered on purpose:
 # the router then leaves the speed alone.
 CONF_POOL_SWITCH: Final = "pool_switch_entity"

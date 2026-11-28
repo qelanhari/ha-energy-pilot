@@ -201,6 +201,42 @@ class PilotingSwitch(RouterEntity, SwitchEntity):
         self.async_write_ha_state()
 
 
+class IndicatorSwitch(RouterEntity, SwitchEntity):
+    """On by default: the lamp shows the draw while the sun shines on a dark room.
+
+    Off, a lamp it lit is turned off; a lamp the room lit is left alone.
+    """
+
+    _attr_icon = "mdi:lightbulb-on-outline"
+
+    def __init__(self, coordinator: ApplianceCoordinator) -> None:
+        super().__init__(coordinator, "voyant")
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.indicator.enabled
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        indicator = self.coordinator.indicator
+        memory = indicator.memory
+        return {
+            "lampe": indicator.lamp,
+            "raison": memory.reason,
+            "allume_par_le_voyant": memory.owned,
+            "teinte": memory.sent_hue,
+            "luminosite": memory.sent_brightness,
+        }
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.coordinator.indicator.async_set_enabled(True)
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self.coordinator.indicator.async_set_enabled(False)
+        self.async_write_ha_state()
+
+
 class WaterModeSelect(RouterEntity, SelectEntity):
     def __init__(self, coordinator: ApplianceCoordinator) -> None:
         super().__init__(coordinator, "mode_chauffe_eau")

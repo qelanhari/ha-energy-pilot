@@ -81,7 +81,10 @@
           "pool_water_warm_c": "Piscine : eau assez chaude pour les vitesses hautes",
           "solar_forecast_entry": "Prévision solaire horaire (courbe)",
           "pool_winter_daily_minutes": "Piscine : filtration minimale par jour en hiver",
-          "pool_winter_stir_minutes": "Piscine : brassage par jour en hiver (v2/v3)"
+          "pool_winter_stir_minutes": "Piscine : brassage par jour en hiver (v2/v3)",
+          "indicator_light_entity": "Voyant : lampe",
+          "indicator_room_entity": "Voyant : pièce (groupe de lumières)",
+          "indicator_min_solar_w": "Voyant : production solaire minimale"
         },
         "data_description": {
           "water_contactor_entity": "Le contacteur engage le chauffe-eau pour deux heures au moins. Sans lui, ni contacteur ni pompe ne sont pilotés.",
@@ -90,7 +93,10 @@
           "water_heater_nominal_w": "Mesurée : environ 650 W, pas les 800 W de la plaque.",
           "solar_forecast_entry": "La courbe heure par heure, moins ce que la maison consomme à chaque heure, dit quand le surplus pourra porter le chauffe-eau. Open-Meteo Solar Forecast prévoit mieux ici que Forecast.Solar (corrélation avec le réel 0,86 contre 0,74 sur 29 jours).",
           "pool_winter_daily_minutes": "De 06:00 à 06:00. Ce que le soleil n'a pas couvert tourne en v1 en fin d'heures creuses, pour finir à 06:00. 0 : pas de complément.",
-          "pool_winter_stir_minutes": "Compris dans la filtration. v1 seule ne brasse pas assez : des algues se déposent. En v3 (v2 si le soleil ne paie pas plus) dès que le soleil le permet, sinon en v3 au début du complément de fin de nuit. 0 : pas de brassage."
+          "pool_winter_stir_minutes": "Compris dans la filtration. v1 seule ne brasse pas assez : des algues se déposent. En v3 (v2 si le soleil ne paie pas plus) dès que le soleil le permet, sinon en v3 au début du complément de fin de nuit. 0 : pas de brassage.",
+          "indicator_light_entity": "Allumée d'elle-même tant que le soleil produit et que le reste de la pièce est éteint : sa couleur suit la consommation nette (tout le cercle des teintes, dans un seul sens : vert dès qu’on injecte (citron vert pour un peu, vert franc dès 1,5 kW), puis cyan à 0 W, bleu à 700 W, puis violet, magenta et rouge dès 6 kW), sa luminosité la production. Éteinte à la main, elle le reste jusqu'au retour des conditions. Vide : pas de voyant.",
+          "indicator_room_entity": "Le groupe de la pièce (une pièce Hue liste ses lampes) : dès qu'une autre lampe s'allume, le voyant lui laisse la sienne.",
+          "indicator_min_solar_w": "En dessous (moins 50 W de marge à l'extinction), le voyant s'éteint."
         }
       }
     }
@@ -229,6 +235,9 @@
       },
       "pilotage": {
         "name": "Pilotage"
+      },
+      "voyant": {
+        "name": "Voyant"
       }
     },
     "select": {

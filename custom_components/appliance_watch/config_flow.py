@@ -39,6 +39,9 @@ from .const import (
     CONF_HEATER_ENERGY,
     CONF_HEATER_NOMINAL,
     CONF_HEATER_POWER,
+    CONF_INDICATOR_LIGHT,
+    CONF_INDICATOR_MIN_PV,
+    CONF_INDICATOR_ROOM,
     CONF_LAUNDRY_METER,
     CONF_MEASURED,
     CONF_MIN_SAVING,
@@ -70,6 +73,7 @@ from .const import (
 )
 from .forecast_source import FORECAST_DOMAINS
 from .logic.detector import DryerConfig, PlateauConfig
+from .logic.indicator import DEFAULT_MIN_PV_W
 from .logic.loads.pool import Thresholds as PoolThresholds
 from .logic.solar_start import SolarStartConfig
 
@@ -84,6 +88,7 @@ RAIN = selector.EntitySelector(selector.EntitySelectorConfig(
 SWITCH = selector.EntitySelector(selector.EntitySelectorConfig(domain="switch"))
 NUMBER = selector.EntitySelector(selector.EntitySelectorConfig(domain="number"))
 BINARY = selector.EntitySelector(selector.EntitySelectorConfig(domain="binary_sensor"))
+LIGHT = selector.EntitySelector(selector.EntitySelectorConfig(domain="light"))
 TEMPERATURE = selector.EntitySelector(selector.EntitySelectorConfig(
     domain="sensor", device_class="temperature"))
 ENERGY = selector.EntitySelector(selector.EntitySelectorConfig(
@@ -227,4 +232,8 @@ class ApplianceWatchOptionsFlow(OptionsFlow):
         schema[vol.Required(CONF_WINTER_STIR_MINUTES, default=entry_value(
             entry, CONF_WINTER_STIR_MINUTES, PoolThresholds().winter_stir_minutes))] = _number(
                 0, 120, 5, "min")
+        schema.update(_optional_entity(entry, CONF_INDICATOR_LIGHT, LIGHT))
+        schema.update(_optional_entity(entry, CONF_INDICATOR_ROOM, LIGHT))
+        schema[vol.Required(CONF_INDICATOR_MIN_PV, default=entry_value(
+            entry, CONF_INDICATOR_MIN_PV, DEFAULT_MIN_PV_W))] = _number(0, 3000, 50, "W")
         return self.async_show_form(step_id="routeur", data_schema=vol.Schema(schema))

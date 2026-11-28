@@ -45,6 +45,7 @@ from .const import (
     entry_value,
 )
 from .forecast_source import SolarForecastSource
+from .indicator import Indicator
 from .logic.detector import (
     DryerConfig,
     DryerDetector,
@@ -164,6 +165,7 @@ class ApplianceCoordinator(DataUpdateCoordinator[dict[str, WatcherState]]):
         self.solar = WasherSolarStart(hass, entry, self._state)
         self.forecast = SolarForecastSource(hass, entry)
         self.router = SolarRouter(hass, entry, self._state, self.forecast)
+        self.indicator = Indicator(hass, entry)
         self.states: dict[str, WatcherState] = {
             watcher: WatcherState(appliance=watcher)
             for watcher in (DISHWASHER, WASHER, DRYER)
@@ -182,6 +184,7 @@ class ApplianceCoordinator(DataUpdateCoordinator[dict[str, WatcherState]]):
         """Load what was learned, then start listening."""
         await self._load_state()
         await self.router.async_load()
+        await self.indicator.async_setup()
         self._washer_entities = self._find_washer_entities()
         self.solar.remote = self._washer_entities.remote
         self.solar.operation = self._washer_entities.operation
@@ -207,6 +210,7 @@ class ApplianceCoordinator(DataUpdateCoordinator[dict[str, WatcherState]]):
                                       timedelta(seconds=TICK_SECONDS)))
 
     async def async_teardown(self) -> None:
+        self.indicator.teardown()
         while self._unsubscribe:
             self._unsubscribe.pop()()
 

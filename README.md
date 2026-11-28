@@ -273,6 +273,24 @@ Configured in the second Options step. It **observes only** until the
 Turn `dhwp_smart` and `pool_pump` off before turning it on. On first start
 it takes over the weekday hot-water habits `dhwp_smart` has learned.
 
+### Indicator lamp — the draw in colour
+
+Optional, in the same Options step: a lamp, its room's light group, and a
+minimum solar production (200 W by default). While the panels make at least
+that and no other lamp of the room is on, the lamp lights up on its own:
+
+- **colour**: the net draw (grid meter, smoothed over ~8 s), sweeping the hue
+  circle one way at full saturation: green as soon as it exports (lime for a little, pure green from 1.5 kW),
+  then cyan (0 W) → blue
+  (700 W) → violet (1.5 kW) → magenta (3 kW) → red (6 kW and above);
+- **brightness**: the panels, from 16 % at the minimum to 100 % at 5 kW.
+
+It follows every meter reading, at most one update every 2 s, each faded over
+2 s. When the sun goes (50 W below the minimum) it turns the lamp off; when the
+room is lit it hands the lamp over without touching it; turned off by hand it
+stays off until either condition has lapsed and come back. The « Voyant »
+switch of the router turns it off for good.
+
 ### Not waiting for a sun that will not come
 
 The armed washer reads the rest of the day: Forecast.Solar's curve (remaining

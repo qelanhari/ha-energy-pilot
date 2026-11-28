@@ -1,4 +1,5 @@
-"""Switches: the sun may start the washer; the router may drive its loads."""
+"""Switches: the sun may start the washer; the router may drive its loads; the
+indicator lamp may show the draw."""
 
 from __future__ import annotations
 
@@ -12,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN, WASHER
 from .coordinator import ApplianceCoordinator
 from .entity import ApplianceEntity
-from .router_entities import PilotingSwitch
+from .router_entities import IndicatorSwitch, PilotingSwitch
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
@@ -21,6 +22,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
     entities: list[SwitchEntity] = [SolarStartSwitch(coordinator)]
     if coordinator.router.configured:
         entities.append(PilotingSwitch(coordinator))
+    if coordinator.indicator.configured:
+        entities.append(IndicatorSwitch(coordinator))
     async_add_entities(entities)
 
 
